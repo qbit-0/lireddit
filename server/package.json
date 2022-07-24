@@ -12,15 +12,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/qbit-0/lireddit-server.git"
+    "url": "git+https://github.com/qbit-0/lireddit.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/qbit-0/lireddit-server/issues"
+    "url": "https://github.com/qbit-0/lireddit/issues"
   },
-  "homepage": "https://github.com/qbit-0/lireddit-server#readme",
+  "homepage": "https://github.com/qbit-0/lireddit#readme",
   "devDependencies": {
     "@types/connect-redis": "^0.0.18",
     "@types/express-session": "^1.17.5",
