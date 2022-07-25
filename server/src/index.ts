@@ -1,6 +1,7 @@
 import { MikroORM } from "@mikro-orm/core";
 import { ApolloServer } from "apollo-server-express";
 import connectRedis from "connect-redis";
+import cors from "cors";
 import express from "express";
 import session from "express-session";
 import { createClient } from "redis";
@@ -11,7 +12,6 @@ import mikroConfig from "./mikro-orm.config";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
-import { MyContext } from "./types";
 
 const main = async () => {
   const orm = await MikroORM.init(mikroConfig);
@@ -19,6 +19,13 @@ const main = async () => {
   const em = orm.em.fork();
 
   const app = express();
+
+  app.use(
+    cors({
+      origin: ["https://studio.apollographql.com", "http://localhost:3000"],
+      credentials: true,
+    })
+  );
 
   const RedisStore = connectRedis(session);
   const redisClient = createClient({ legacyMode: true });
@@ -34,7 +41,7 @@ const main = async () => {
       cookie: {
         maxAge: 1000 * 60 * 60 * 60 * 365 * 10,
         httpOnly: true,
-        sameSite: "none",
+        sameSite: "lax",
         secure: __prod__,
       },
       secret: "asdfkljaskldfja329as",
@@ -48,13 +55,13 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }): MyContext => ({ em, req, res }),
+    context: ({ req, res }) => ({ em, req, res }),
   });
 
   await apolloServer.start();
-  apolloServer.applyMiddleware({ app });
+  apolloServer.applyMiddleware({ app, cors: false });
 
-  const PORT = 3000;
+  const PORT = 4000;
   app.listen(PORT, () => {
     console.log(`server started on localhost:${PORT}`);
   });

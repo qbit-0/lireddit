@@ -3,23 +3,23 @@ import { Form, Formik } from "formik";
 import { useRouter } from "next/router";
 import InputField from "../components/InputField";
 import Wrapper from "../components/Wrapper";
-import { useRegisterMutation } from "../generated/graphql";
+import { useLoginMutation } from "../generated/graphql";
 import { toErrorMap } from "../utils/toErrorMap";
 
 type Props = {};
 
-const Register = (props: Props) => {
+const Login = (props: Props) => {
   const router = useRouter();
-  const [{}, register] = useRegisterMutation();
+  const [{}, login] = useLoginMutation();
   return (
     <Wrapper>
       <Formik
         initialValues={{ username: "", password: "" }}
         onSubmit={async (values, { setErrors }) => {
-          const response = await register(values);
-          if (response.data.register.errors) {
-            setErrors(toErrorMap(response.data.register.errors));
-          } else if (response.data.register.user) {
+          const response = await login({ options: values });
+          if (response.data?.login.errors) {
+            setErrors(toErrorMap(response.data.login.errors));
+          } else if (response.data?.login.user) {
             router.push("/");
           }
         }}
@@ -41,7 +41,7 @@ const Register = (props: Props) => {
               colorScheme="teal"
               isLoading={isSubmitting}
             >
-              register
+              login
             </Button>
           </Form>
         )}
@@ -50,4 +50,4 @@ const Register = (props: Props) => {
   );
 };
 
-export default Register;
+export default Login;
