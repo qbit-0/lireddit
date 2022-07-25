@@ -4,19 +4,29 @@ import connectRedis from "connect-redis";
 import cors from "cors";
 import express from "express";
 import session from "express-session";
-import { createClient } from "redis";
+import Redis from "ioredis";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
-import { __prod__ } from "./constants";
+import { COOKIE_NAME, __prod__ } from "./constants";
 import mikroConfig from "./mikro-orm.config";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
 import { UserResolver } from "./resolvers/user";
+import { createConnection } from "typeorm";
 
 const main = async () => {
+  const conn = await createConnection({
+    type: "postgres",
+    database: "liredit2",
+    username: "postgres",
+    password: "postgres",
+    logging: true,
+    synchronize: true,
+    entities: [],
+  });
   const orm = await MikroORM.init(mikroConfig);
-  await orm.getMigrator().up();
   const em = orm.em.fork();
+  await orm.getMigrator().up();
 
   const app = express();
 
@@ -28,14 +38,13 @@ const main = async () => {
   );
 
   const RedisStore = connectRedis(session);
-  const redisClient = createClient({ legacyMode: true });
-  await redisClient.connect();
+  const redis = new Redis();
 
   app.use(
     session({
-      name: "qid",
+      name: COOKIE_NAME,
       store: new RedisStore({
-        client: redisClient,
+        client: redis,
         disableTouch: true,
       }),
       cookie: {
@@ -55,7 +64,7 @@ const main = async () => {
       resolvers: [HelloResolver, PostResolver, UserResolver],
       validate: false,
     }),
-    context: ({ req, res }) => ({ em, req, res }),
+    context: ({ req, res }) => ({ em, req, res, redis }),
   });
 
   await apolloServer.start();
