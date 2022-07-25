@@ -1,7 +1,3 @@
-import {
-  RequiredEntityData,
-  UniqueConstraintViolationException,
-} from "@mikro-orm/core";
 import argon2 from "argon2";
 import {
   Arg,
@@ -10,23 +6,22 @@ import {
   Mutation,
   ObjectType,
   Query,
-  ReflectMetadataMissingError,
   Resolver,
 } from "type-graphql";
+import { QueryFailedError } from "typeorm";
+import { v4 } from "uuid";
 import { COOKIE_NAME, FORGET_PASSWORD_PREFIX } from "../constants";
 import { User } from "../entities/User";
 import { MyContext } from "../types";
 import sendEmail from "../utils/sendEmail";
-import validateRegister from "../utils/validateRegister";
 import { UsernamePasswordInput } from "./UsernamePasswordInput";
-import { v4 } from "uuid";
 
 @ObjectType()
 class FieldError {
   @Field()
-  field: string;
+  field!: string;
   @Field()
-  message: string;
+  message!: string;
 }
 
 @ObjectType()
@@ -43,7 +38,7 @@ export class UserResolver {
   async changePassword(
     @Arg("token") token: string,
     @Arg("newPassword") newPassword: string,
-    @Ctx() { redis, em, req }: MyContext
+    @Ctx() { redis, req }: MyContext
   ): Promise<UserResponse> {
     if (newPassword.length <= 2) {
       return {
@@ -69,7 +64,8 @@ export class UserResolver {
       };
     }
 
-    const user = await em.findOne(User, { id: parseInt(userId) });
+    const userIdNum = parseInt(userId);
+    const user = await User.findOneBy({ id: userIdNum });
     if (!user) {
       return {
         errors: [
@@ -81,8 +77,10 @@ export class UserResolver {
       };
     }
 
-    user.password = await argon2.hash(newPassword);
-    await em.persistAndFlush(user);
+    await User.update(
+      { id: userIdNum },
+      { password: await argon2.hash(newPassword) }
+    );
 
     await redis.del(key);
 
@@ -94,9 +92,9 @@ export class UserResolver {
   @Mutation(() => Boolean)
   async forgotPassword(
     @Arg("email") email: string,
-    @Ctx() { em, redis }: MyContext
+    @Ctx() { redis }: MyContext
   ): Promise<boolean> {
-    const user = await em.findOne(User, { email });
+    const user = await User.findOneBy({ email });
     if (!user) {
       return true;
     }
@@ -118,34 +116,29 @@ export class UserResolver {
   }
 
   @Query(() => User, { nullable: true })
-  async me(@Ctx() { em, req }: MyContext): Promise<User | null> {
+  me(@Ctx() { req }: MyContext) {
     if (req.session.userId === undefined) {
       return null;
     }
-    const user = await em.findOne(User, { id: req.session.userId });
-    return user;
+    return User.findOneBy({ id: req.session.userId });
   }
 
   @Mutation(() => UserResponse)
   async register(
     @Arg("options") options: UsernamePasswordInput,
-    @Ctx() { em, req }: MyContext
+    @Ctx() { req }: MyContext
   ): Promise<UserResponse> {
     const hashedPassword = await argon2.hash(options.password);
-    const user = em.create(User, {
-      email: options.email,
-      username: options.username,
-      password: hashedPassword,
-    } as RequiredEntityData<User>);
-    try {
-      const errors = validateRegister(options);
-      if (errors) {
-        return { errors };
-      }
 
-      await em.persistAndFlush(user);
+    let user;
+    try {
+      user = await User.create({
+        username: options.username,
+        email: options.email,
+        password: hashedPassword,
+      }).save();
     } catch (err) {
-      if (err instanceof UniqueConstraintViolationException) {
+      if (err instanceof QueryFailedError && err.driverError.code === "23505") {
         // duplicate username error
         return {
           errors: [
@@ -156,6 +149,14 @@ export class UserResolver {
           ],
         };
       }
+      return {
+        errors: [
+          {
+            field: "unknown",
+            message: "internal server error",
+          },
+        ],
+      };
     }
 
     req.session.userId = user.id;
@@ -167,14 +168,14 @@ export class UserResolver {
   async login(
     @Arg("usernameOrEmail") usernameOrEmail: string,
     @Arg("password") password: string,
-    @Ctx() { em, req }: MyContext
+    @Ctx() { req }: MyContext
   ): Promise<UserResponse> {
-    const user = await em.findOne(
-      User,
+    const user = await User.findOneBy(
       usernameOrEmail.includes("@")
         ? { email: usernameOrEmail }
         : { username: usernameOrEmail }
     );
+
     if (!user) {
       return {
         errors: [
