@@ -1,7 +1,7 @@
 import { Box, Button, Flex, Link } from "@chakra-ui/react";
 import NextLink from "next/link";
 import { useLogoutMutation, useMeQuery } from "../generated/graphql";
-import useIsHydration from "../hooks/useIsHydration";
+import useIsHydration from "../utils/hooks/useIsHydration";
 
 type Props = {};
 
@@ -46,7 +46,7 @@ const NavBar = (props: Props) => {
   }
 
   return (
-    <Flex bg="tan" p={4} ml="auto">
+    <Flex zIndex={1} position="sticky" top={0} bg="tan" p={4} ml="auto">
       <Box ml="auto">{body}</Box>
     </Flex>
   );

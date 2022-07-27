@@ -1,8 +1,10 @@
 import { Box } from "@chakra-ui/react";
 import React, { FC } from "react";
 
+export type WrapperVariant = "small" | "regular";
+
 type Props = {
-  variant?: "small" | "regular";
+  variant?: WrapperVariant;
   children: React.ReactNode;
 };
 

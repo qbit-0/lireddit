@@ -4,11 +4,13 @@ import cors from "cors";
 import express from "express";
 import session from "express-session";
 import Redis from "ioredis";
+import path from "path";
 import "reflect-metadata";
 import { buildSchema } from "type-graphql";
 import { createConnection } from "typeorm";
 import { COOKIE_NAME, __prod__ } from "./constants";
 import { Post } from "./entities/Post";
+import { Updoot } from "./entities/Updoot";
 import { User } from "./entities/User";
 import { HelloResolver } from "./resolvers/hello";
 import { PostResolver } from "./resolvers/post";
@@ -22,8 +24,11 @@ const main = async () => {
     password: "postgres",
     logging: true,
     synchronize: true,
-    entities: [Post, User],
+    migrations: [path.join(__dirname, "./migrations/*")],
+    entities: [Post, User, Updoot],
   });
+  await conn.runMigrations();
+  // await Post.clear();
 
   const app = express();
 
